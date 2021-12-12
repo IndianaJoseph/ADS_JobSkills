@@ -1,0 +1,289 @@
+---
+title: "Assignment2"
+author: "Joseph Finke"
+date: "12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+
+## Wrangling, & Exploring Data
+
+```{r loadings}
+#Setting Work Directory
+setwd("C:/Users/Josep/OneDrive/School/Fall 2021/D590 - Applied Data Science/Project")
+
+#Loading Libraries
+library(tidyverse)
+library(dplyr)
+
+#Loading the data files
+Knowledge <- read.csv("KnowledgeData.csv", header=T)
+Skills <- read.csv("SkillsData.csv", header=T)
+Abilities <- read.csv("AbilitiesData.csv", header=T)
+
+#Checking out the data
+dim(Knowledge)
+dim(Skills)
+dim(Abilities)
+
+# Adding datasets vertically
+KSAdata <- rbind(Knowledge, Skills, Abilities)
+
+#Checking out data
+dim(KSAdata)
+glimpse(KSAdata)
+
+#View data
+View(KSAdata)
+str(KSAdata)
+
+#Number of Occupations in dataset
+nrow(table(KSAdata$Title))
+
+#Number of KSAs by type
+table(KSAdata$Element_Type)
+```
+## Visualizations
+
+```{r visualizations}
+#load library
+library(ggplot2)
+
+#Use skills data to example.
+Skills2 <- read.csv("SkillsData2.csv", header=T)
+
+#Compare occupations on one skill - active learning
+ggplot(data=Skills2, aes(jobID, Active.Learning)) + geom_bar(stat = "identity", fill = "darkblue")
+
+#Similiar, only horizontal
+barplot(Skills2$Active.Learning, horiz = TRUE)
+
+#Scatterplot of active learning & active listening
+plot(Skills2$Active.Learning, Skills2$Active.Listening)
+
+```
+
+```{r visualization future}
+#Flip rows and columns to better explore occupation's skills
+Skills3 <- read.csv("SkillsData3.csv", header=T)
+
+#Example plot of the skills needed by Chief Executives
+ggplot(data=Skills3, aes(Skill, Chief.Executives)) + geom_bar(stat = "identity", fill = "darkblue") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+#Example plot of the skills needed by Transporation Security Screeners
+ggplot(data=Skills3, aes(Skill, Transportation.Security.Screeners)) + geom_bar(stat = "identity", fill = "darkblue") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+## Clustering
+
+
+### Measuring Distance
+In this first subsection, I compute the distance or similiarity between each occupation's skill scores. I use the default Euclidean distance.
+
+```{r distance}
+#load libraries
+library(cluster)
+library(factoextra)
+
+#set dataframe
+df <- Skills2[,2:36]
+df <- scale(df)
+
+#compute disatnce matrix
+distance <- get_dist(df)
+
+#visualize distance matrix
+fviz_dist(distance, gradient = list(low = "#0b5394", mid = "white", high = "#ef791a"))
+```
+### Number of K Clusters
+
+Next, I attempt to find the optimal number of clusters using the eblow method. 
+
+For this subsection, I adapted code from R-bloggers.
+
+Citation:
+* Title: Finding Optimal Number of Clusters
+* Author: Sunny Anand
+* Date: February 2017
+* Availability: https://www.r-bloggers.com/2017/02/finding-optimal-number-of-clusters/
+
+```{r elbow method}
+#Elbow Method for finding the optimal number of clusters
+set.seed(123)
+
+# Compute and plot wss for k = 2 to k = 15.
+k.max <- 15
+wss <- sapply(1:k.max, 
+              function(k){kmeans(df, k, nstart=50,iter.max = 15 )$tot.withinss})
+wss
+plot(1:k.max, wss,
+     type="b", pch = 19, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
+```
+
+### K Means Clustering & Visualizing Clusters
+Next, I conducted k-means clustering. I also visualize the clusters. 
+
+Portions of the following code were adapted from the University of Cincinnati Business Analytics R Programming Guide.
+Citation:
+* Title: UC Business Analytics R Programming Guide
+* Author: Bradley Boehmke
+* Availability: https://uc-r.github.io/kmeans_clustering
+
+```{r kmeans}
+
+#Build Clustering
+k2 <- kmeans(df, centers = 2, nstart = 25)
+k3 <- kmeans(df, centers = 3, nstart = 25)
+k4 <- kmeans(df, centers = 4, nstart = 25)
+k5 <- kmeans(df, centers = 5, nstart = 25)
+k6 <- kmeans(df, centers = 6, nstart = 25)
+
+#plots to compare
+p1 <- fviz_cluster(k2, geom = "point", data = df) + ggtitle("k = 2")
+p2 <- fviz_cluster(k3, geom = "point",  data = df) + ggtitle("k = 3")
+p3 <- fviz_cluster(k4, geom = "point",  data = df) + ggtitle("k = 4")
+p4 <- fviz_cluster(k5, geom = "point",  data = df) + ggtitle("k = 5")
+p5 <- fviz_cluster(k5, geom = "point",  data = df) + ggtitle("k = 6")
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, p4, p5, nrow = 2)
+```
+
+### Hierarchical Clustering
+```{r}
+#Loading the data files
+topskill <- read.csv("SkillsData9.csv", header=T)
+
+str(topskill)
+
+# Compute distances
+distances <- dist(topskill[2:36], method = "euclidean")
+
+# Hierarchical clustering
+clustertopskill <- hclust(distances, method = "ward")
+
+#ClusterGroups
+clusterGroups = cutree(clustertopskill, k = 25)
+
+clusterGroups
+
+# Plot the dendrogram
+plot(clusterGroups)
+
+cluster1 = subset(topskill, clusterGroups == 1)
+# Look at the first 10 titles in this cluster:
+cluster1$jobID[1:10]
+
+cluster2 = subset(topskill, clusterGroups == 2)
+# Look at the first 10 titles in this cluster:
+cluster2$jobID[1:10]
+
+cluster3 = subset(topskill, clusterGroups == 3)
+# Look at the first 10 titles in this cluster:
+cluster3$jobID[1:10]
+
+cluster4 = subset(topskill, clusterGroups == 4)
+# Look at the first 10 titles in this cluster:
+cluster4$jobID[1:10]
+
+cluster5 = subset(topskill, clusterGroups == 5)
+# Look at the first 10 titles in this cluster:
+cluster5$jobID[1:10]
+
+cluster6 = subset(topskill, clusterGroups == 6)
+# Look at the first 10 titles in this cluster:
+cluster6$jobID[1:10]
+
+cluster7 = subset(topskill, clusterGroups == 7)
+# Look at the first 10 titles in this cluster:
+cluster7$jobID[1:10]
+
+cluster8 = subset(topskill, clusterGroups == 8)
+# Look at the first 10 titles in this cluster:
+cluster8$jobID[1:10]
+
+cluster9 = subset(topskill, clusterGroups == 9)
+# Look at the first 10 titles in this cluster:
+cluster9$jobID[1:10]
+
+cluster10 = subset(topskill, clusterGroups == 10)
+# Look at the first 10 titles in this cluster:
+cluster10$jobID[1:10]
+
+cluster11 = subset(topskill, clusterGroups == 11)
+# Look at the first 10 titles in this cluster:
+cluster11$jobID[1:10]
+
+cluster12 = subset(topskill, clusterGroups == 12)
+# Look at the first 10 titles in this cluster:
+cluster12$jobID[1:10]
+
+cluster13 = subset(topskill, clusterGroups == 13)
+# Look at the first 10 titles in this cluster:
+cluster13$jobID[1:10]
+
+cluster14 = subset(topskill, clusterGroups == 14)
+# Look at the first 10 titles in this cluster:
+cluster14$jobID[1:10]
+
+cluster15 = subset(topskill, clusterGroups == 15)
+# Look at the first 10 titles in this cluster:
+cluster15$jobID[1:10]
+
+cluster16 = subset(topskill, clusterGroups == 16)
+# Look at the first 10 titles in this cluster:
+cluster16$jobID[1:10]
+
+cluster17 = subset(topskill, clusterGroups == 17)
+# Look at the first 10 titles in this cluster:
+cluster17$jobID[1:10]
+
+cluster18 = subset(topskill, clusterGroups == 18)
+# Look at the first 10 titles in this cluster:
+cluster18$jobID[1:10]
+
+cluster19 = subset(topskill, clusterGroups == 19)
+# Look at the first 10 titles in this cluster:
+cluster19$jobID[1:10]
+
+cluster20 = subset(topskill, clusterGroups == 20)
+# Look at the first 10 titles in this cluster:
+cluster20$jobID[1:10]
+
+cluster21 = subset(topskill, clusterGroups == 21)
+# Look at the first 10 titles in this cluster:
+cluster21$jobID[1:10]
+
+cluster22 = subset(topskill, clusterGroups == 22)
+# Look at the first 10 titles in this cluster:
+cluster22$jobID[1:10]
+
+cluster23 = subset(topskill, clusterGroups == 23)
+# Look at the first 10 titles in this cluster:
+cluster23$jobID[1:10]
+
+cluster24 = subset(topskill, clusterGroups == 24)
+# Look at the first 10 titles in this cluster:
+cluster24$jobID[1:10]
+
+cluster25 = subset(topskill, clusterGroups == 25)
+# Look at the first 10 titles in this cluster:
+cluster25$jobID[1:10]
+
+
+topskill$cluster <- clusterGroups
+
+
+cluster25$jobID[1:10]
+```
+
+
